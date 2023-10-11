@@ -16,6 +16,7 @@ import {
 import { isLogicRule } from './utils.js'
 import { GraphQLResolveInfo } from 'graphql'
 import { isUndefined } from 'util'
+import { isPromise } from 'util/types'
 
 export class Rule implements IRule {
   readonly name: string
@@ -52,8 +53,8 @@ export class Rule implements IRule {
   ): Promise<IRuleResult> {
     try {
       /* Resolve */
-      const res = await this.executeRule(parent, args, ctx, info, options)
-
+      const resMaybePromise = this.executeRule(parent, args, ctx, info, options)
+      const res = isPromise(resMaybePromise) ? await resMaybePromise : resMaybePromise
       if (res instanceof Error) {
         return res
       } else if (typeof res === 'string') {
@@ -290,7 +291,8 @@ export class RuleOr extends LogicRule {
     info: GraphQLResolveInfo,
     options: IOptions,
   ): Promise<IRuleResult> {
-    const result = await this.evaluate(parent, args, ctx, info, options)
+    const resultMaybePromise = this.evaluate(parent, args, ctx, info, options)
+    const result = isPromise(resultMaybePromise) ? await resultMaybePromise : resultMaybePromise
 
     if (result.every((res) => res !== true)) {
       const customError = result.find((res) => res instanceof Error)
@@ -316,7 +318,8 @@ export class RuleAnd extends LogicRule {
     info: GraphQLResolveInfo,
     options: IOptions,
   ): Promise<IRuleResult> {
-    const result = await this.evaluate(parent, args, ctx, info, options)
+    const resultMaybePromise = this.evaluate(parent, args, ctx, info, options)
+    const result = isPromise(resultMaybePromise) ? await resultMaybePromise : resultMaybePromise
 
     if (result.some((res) => res !== true)) {
       const customError = result.find((res) => res instanceof Error)
@@ -342,7 +345,8 @@ export class RuleChain extends LogicRule {
     info: GraphQLResolveInfo,
     options: IOptions,
   ): Promise<IRuleResult> {
-    const result = await this.evaluate(parent, args, ctx, info, options)
+    const resultMaybePromise = this.evaluate(parent, args, ctx, info, options)
+    const result = isPromise(resultMaybePromise) ? await resultMaybePromise : resultMaybePromise
 
     if (result.some((res) => res !== true)) {
       const customError = result.find((res) => res instanceof Error)
@@ -368,11 +372,13 @@ export class RuleChain extends LogicRule {
 
     async function iterate([rule, ...otherRules]: ShieldRule[]): Promise<IRuleResult[]> {
       if (isUndefined(rule)) return []
-      const res = await rule.resolve(parent, args, ctx, info, options)
+      const resultMaybePromise = rule.resolve(parent, args, ctx, info, options)
+      const res = isPromise(resultMaybePromise) ? await resultMaybePromise : resultMaybePromise
       if (res !== true) {
         return [res]
       } else {
-        const ress = await iterate(otherRules)
+        const ressMaybePromise = iterate(otherRules)
+        const ress = isPromise(ressMaybePromise) ? await ressMaybePromise : ressMaybePromise
         ress.concat(res)
         return ress
       }
@@ -395,7 +401,8 @@ export class RuleRace extends LogicRule {
     info: GraphQLResolveInfo,
     options: IOptions,
   ): Promise<IRuleResult> {
-    const result = await this.evaluate(parent, args, ctx, info, options)
+    const resultMaybePromise = this.evaluate(parent, args, ctx, info, options)
+    const result = isPromise(resultMaybePromise) ? await resultMaybePromise : resultMaybePromise
 
     if (result.some((res) => res === true)) {
       return true
@@ -421,11 +428,13 @@ export class RuleRace extends LogicRule {
 
     async function iterate([rule, ...otherRules]: ShieldRule[]): Promise<IRuleResult[]> {
       if (isUndefined(rule)) return []
-      const res = await rule.resolve(parent, args, ctx, info, options)
+      const resMaybePromise = rule.resolve(parent, args, ctx, info, options)
+      const res = isPromise(resMaybePromise) ? await resMaybePromise : resMaybePromise
       if (res === true) {
         return [res]
       } else {
-        const ress = await iterate(otherRules)
+        const ressMaybePromise = iterate(otherRules)
+        const ress = isPromise(ressMaybePromise) ? await ressMaybePromise : ressMaybePromise
         ress.concat(res)
         return ress
       }
@@ -458,7 +467,8 @@ export class RuleNot extends LogicRule {
     info: GraphQLResolveInfo,
     options: IOptions,
   ): Promise<IRuleResult> {
-    const [res] = await this.evaluate(parent, args, ctx, info, options)
+    const resultMaybePromise = this.evaluate(parent, args, ctx, info, options)
+    const [res] = isPromise(resultMaybePromise) ? await resultMaybePromise : resultMaybePromise
 
     if (res instanceof Error) {
       return true
