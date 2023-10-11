@@ -24,11 +24,7 @@ export class Rule implements IRule {
   private fragment?: IFragment
   private func: IRuleFunction
 
-  constructor(
-    name: string,
-    func: IRuleFunction,
-    constructorOptions: IRuleConstructorOptions,
-  ) {
+  constructor(name: string, func: IRuleFunction, constructorOptions: IRuleConstructorOptions) {
     const options = this.normalizeOptions(constructorOptions)
 
     this.name = name
@@ -106,10 +102,7 @@ export class Rule implements IRule {
    */
   private normalizeOptions(options: IRuleConstructorOptions): IRuleOptions {
     return {
-      cache:
-        options.cache !== undefined
-          ? this.normalizeCacheOption(options.cache)
-          : 'no_cache',
+      cache: options.cache !== undefined ? this.normalizeCacheOption(options.cache) : 'no_cache',
       fragment: options.fragment !== undefined ? options.fragment : undefined,
     }
   }
@@ -162,12 +155,7 @@ export class Rule implements IRule {
           case 'strict': {
             const key = options.hashFunction({ parent, args })
 
-            return this.writeToCache(`${this.name}-${key}`)(
-              parent,
-              args,
-              ctx,
-              info,
-            )
+            return this.writeToCache(`${this.name}-${key}`)(parent, args, ctx, info)
           }
           case 'contextual': {
             return this.writeToCache(this.name)(parent, args, ctx, info)
@@ -213,11 +201,7 @@ export class InputRule<T> extends Rule {
     schema: (yup: typeof Yup, ctx: IShieldContext) => Yup.BaseSchema<T>,
     options?: Parameters<Yup.BaseSchema<T>['validate']>[1],
   ) {
-    const validationFunction: IRuleFunction = (
-      parent: object,
-      args: object,
-      ctx: IShieldContext,
-    ) =>
+    const validationFunction: IRuleFunction = (parent: object, args: object, ctx: IShieldContext) =>
       schema(Yup, ctx)
         .validate(args, options)
         .then(() => true)
@@ -258,9 +242,7 @@ export class LogicRule implements ILogicRule {
     options: IOptions,
   ): Promise<IRuleResult[]> {
     const rules = this.getRules()
-    const tasks = rules.map((rule) =>
-      rule.resolve(parent, args, ctx, info, options),
-    )
+    const tasks = rules.map((rule) => rule.resolve(parent, args, ctx, info, options))
 
     return Promise.all(tasks)
   }
@@ -384,17 +366,16 @@ export class RuleChain extends LogicRule {
 
     return iterate(rules)
 
-    async function iterate([rule, ...otherRules]: ShieldRule[]): Promise<
-      IRuleResult[]
-    > {
+    async function iterate([rule, ...otherRules]: ShieldRule[]): Promise<IRuleResult[]> {
       if (isUndefined(rule)) return []
-      return rule.resolve(parent, args, ctx, info, options).then((res) => {
-        if (res !== true) {
-          return [res]
-        } else {
-          return iterate(otherRules).then((ress) => ress.concat(res))
-        }
-      })
+      const res = await rule.resolve(parent, args, ctx, info, options)
+      if (res !== true) {
+        return [res]
+      } else {
+        const ress = await iterate(otherRules)
+        ress.concat(res)
+        return ress
+      }
     }
   }
 }
@@ -438,17 +419,16 @@ export class RuleRace extends LogicRule {
 
     return iterate(rules)
 
-    async function iterate([rule, ...otherRules]: ShieldRule[]): Promise<
-      IRuleResult[]
-    > {
+    async function iterate([rule, ...otherRules]: ShieldRule[]): Promise<IRuleResult[]> {
       if (isUndefined(rule)) return []
-      return rule.resolve(parent, args, ctx, info, options).then((res) => {
-        if (res === true) {
-          return [res]
-        } else {
-          return iterate(otherRules).then((ress) => ress.concat(res))
-        }
-      })
+      const res = await rule.resolve(parent, args, ctx, info, options)
+      if (res === true) {
+        return [res]
+      } else {
+        const ress = await iterate(otherRules)
+        ress.concat(res)
+        return ress
+      }
     }
   }
 }
